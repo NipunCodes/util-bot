@@ -3,6 +3,7 @@ from discord.ext import commands
 import logging
 from dotenv import load_dotenv
 import os
+import asyncio
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -15,27 +16,38 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# Bot start message
 @bot.event
 async def on_ready():
-    print(f"We are ready to go in, {bot.user.name}")
+    print("Bot Online")
 
+# Welcome message and auto assign default role
 @bot.event
 async def on_member_join(member):
-    await member.send(f"Welcome to the server {member.name}")
+    role_id = 1417506472727810139
+    role = member.guild.get_role(role_id)
 
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
+    # Try to find a channel named "welcome"
+    welcome_channel = discord.utils.get(member.guild.text_channels, name='welcome')
 
-    if "htto" in message.content.lower():
-        await message.delete()
-        await message.channel.send(f"{message.author.mention} - dont use the word!")
+    # If no welcome channel try to find general
+    if not welcome_channel:
+        welcome_channel = discord.utils.get(member.guild.text_channels, name='general')
 
-    await bot.process_commands(message)
+    # Assign role if found
+    if role:
+        try:
+            await member.add_roles(role)
+        except discord.Forbidden:
+            print(f"I don't have permission to add {role} to {member}")
 
-@bot.command()
-async def hello(ctx):
-    await ctx.send(f"Hello {ctx.author.mention}!")
+    if welcome_channel:
+        await welcome_channel.send(f"Welcome to the Hideout, {member.mention}!")
 
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+# Tell me a joke feature
+async def main():
+    async with bot:
+        await bot.load_extension("cogs.fun")
+        await bot.start(token)
+
+asyncio.run(main())
